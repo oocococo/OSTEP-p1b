@@ -391,4 +391,11 @@ sys_pipe(void)
   return 0;
 }
 
+int
+sys_getnumsyscallp(void)
+{
+  // Account for not including syscall to getnumsyscallp.
+  // So, decrement to counter to reduce the syscall count by 1.
+  return --proc->syscall_count;
+}
 
