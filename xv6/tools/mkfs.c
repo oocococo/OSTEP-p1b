@@ -135,9 +135,9 @@ add_dir(DIR *cur_dir, int cur_inode, int parent_inode) {
 
 	while (true) {
 		//r = readdir_r(cur_dir, &dir_buf, &entry);
-
-		r=1
+		r=0;
 		entry = readdir(cur_dir);
+
 		if (r != 0) {
 			perror("add_dir");
 			return -1;
