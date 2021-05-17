@@ -101,7 +101,7 @@ add_dir(DIR *cur_dir, int cur_inode, int parent_inode) {
 	int cur_fd, child_fd;
 	struct xv6_dirent de;
 	struct dinode din;
-	struct dirent dir_buf;
+	//struct dirent dir_buf;
 	struct dirent *entry;
 	struct stat st;
 	int bytes_read;
@@ -134,8 +134,10 @@ add_dir(DIR *cur_dir, int cur_inode, int parent_inode) {
 	}
 
 	while (true) {
-		r = readdir_r(cur_dir, &dir_buf, &entry);
+		//r = readdir_r(cur_dir, &dir_buf, &entry);
 
+		r=1
+		entry = readdir(cur_dir);
 		if (r != 0) {
 			perror("add_dir");
 			return -1;
