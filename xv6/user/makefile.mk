@@ -13,10 +13,12 @@ USER_PROGS := \
 	rm\
 	sh\
 	stressfs\
-  syscallptest\
 	tester\
 	usertests\
 	wc\
+	hello\
+	test_1\
+	test_2\
 	zombie
 
 USER_PROGS := $(addprefix user/, $(USER_PROGS))

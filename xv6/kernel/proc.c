@@ -156,7 +156,6 @@ fork(void)
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
-  np->syscall_count = 0;
   return pid;
 }
 
