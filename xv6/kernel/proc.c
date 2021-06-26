@@ -173,6 +173,7 @@ fork(void)
   // After fork success, alter pstat.
   pstat.inuse[np-&ptable.proc[0]]=1;
   pstat.pid[np-&ptable.proc[0]]=np->pid;
+  pstat.ticks[np-&ptable.proc[0]]=0;
   pstat.tickets[np-&ptable.proc[0]]= pstat.tickets[proc-&ptable.proc[0]];
   sumtickets+=pstat.tickets[proc-&ptable.proc[0]];
 
@@ -218,6 +219,12 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
+
+  pstat.inuse[proc-&ptable.proc[0]]=0;
+  //pstat.tickets[proc-&ptable.proc[0]]=0;
+  //pstat.ticks[proc-&ptable.proc[0]]=0;
+  //pstat.pid[proc-&ptable.proc[0]]=0;
+
   sched();
   panic("zombie exit");
 }
@@ -304,6 +311,7 @@ scheduler(void)
       switchuvm(p);
       p->state = RUNNING;
 	  sumtickets-=pstat.tickets[p-&ptable.proc[0]];
+	  pstat.ticks[p-&ptable.proc[0]]+=1;
 	  if(sumtickets<0)
 		  cprintf("scheduler: sum tickets below zero %d.\n",sumtickets);
 	  //cprintf("start to run %s [pid: %d].\n",p->name,p->pid);
@@ -490,7 +498,8 @@ settickets(int n)
 }
 
 // Implement of getpinfo
-int getpinfo(struct pstat *pstat)
+int getpinfo(struct pstat *upstat)
 {
+	memmove(upstat,&pstat,sizeof(pstat));
 	return 0;
 }
