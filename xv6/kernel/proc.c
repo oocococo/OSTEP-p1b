@@ -5,7 +5,11 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "pstat.h"
+#include "random.c"
 
+int sumtickets;
+struct pstat pstat;
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -45,6 +49,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -98,6 +103,13 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+
+  memset(&pstat,0,sizeof(pstat));
+  pstat.pid[0] = p->pid;
+  pstat.tickets[0]=1;
+  pstat.inuse[0]=1;
+  sumtickets=1;
+
   release(&ptable.lock);
 }
 
@@ -157,6 +169,13 @@ fork(void)
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   np->syscall_count = 0;
+  
+  // After fork success, alter pstat.
+  pstat.inuse[np-&ptable.proc[0]]=1;
+  pstat.pid[np-&ptable.proc[0]]=np->pid;
+  pstat.tickets[np-&ptable.proc[0]]= pstat.tickets[proc-&ptable.proc[0]];
+  sumtickets+=pstat.tickets[proc-&ptable.proc[0]];
+
   return pid;
 }
 
@@ -257,10 +276,15 @@ void
 scheduler(void)
 {
   struct proc *p;
+  
+  int tmp,rand;
 
   for(;;){
     // Enable interrupts on this processor.
     sti();
+	
+	tmp=0;
+	rand = randomrange(0, sumtickets);
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
@@ -268,21 +292,30 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
+	  tmp+=pstat.tickets[p-&ptable.proc[0]]; 
+	  if(tmp<rand)
+		  continue;
+
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+	  //cprintf("sumtickets: %d, rand: %d.\n",sumtickets,rand);
       proc = p;
       switchuvm(p);
       p->state = RUNNING;
+	  sumtickets-=pstat.tickets[p-&ptable.proc[0]];
+	  if(sumtickets<0)
+		  cprintf("scheduler: sum tickets below zero %d.\n",sumtickets);
+	  //cprintf("start to run %s [pid: %d].\n",p->name,p->pid);
       swtch(&cpu->scheduler, proc->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       proc = 0;
+	  break;
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -312,6 +345,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+  sumtickets+=pstat.tickets[proc-&ptable.proc[0]];
   sched();
   release(&ptable.lock);
 }
@@ -373,7 +407,10 @@ wakeup1(void *chan)
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+	{
+		p->state = RUNNABLE;
+		sumtickets+=pstat.tickets[p-&ptable.proc[0]];
+	}
 }
 
 // Wake up all processes sleeping on chan.
@@ -399,7 +436,7 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
-        p->state = RUNNABLE;
+        p->state = RUNNABLE; // is there need to add sumtickets? Afterall killed process won't be sched.
       release(&ptable.lock);
       return 0;
     }
@@ -444,4 +481,16 @@ procdump(void)
   }
 }
 
+// implement of settickets
+int
+settickets(int n)
+{
+	pstat.tickets[proc-&ptable.proc[0]]=n;
+	return 0;
+}
 
+// Implement of getpinfo
+int getpinfo(struct pstat *pstat)
+{
+	return 0;
+}

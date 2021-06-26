@@ -4,8 +4,11 @@
 #include "param.h"
 #include "mmu.h"
 #include "proc.h"
+#include "pstat.h"
 #include "sysfunc.h"
 
+extern int settickets(int);
+extern int getpinfo(struct pstat*);
 int
 sys_fork(void)
 {
@@ -55,6 +58,7 @@ sys_sbrk(void)
   return addr;
 }
 
+
 int
 sys_sleep(void)
 {
@@ -88,3 +92,24 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_settickets(void)
+{
+	int n;
+    if(argint(0, &n) < 0)
+		return -1;
+	if(n<1)
+		return -1;
+	return settickets(n);
+}
+
+int
+sys_getpinfo(void)
+{
+	char *arg;
+	if(argptr(0,&arg,sizeof(struct pstat))<0)
+		return -1;
+	return getpinfo((struct pstat*)arg);
+}
+
